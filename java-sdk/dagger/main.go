@@ -50,22 +50,21 @@ func (m *JavaSdk) GetJDK() *JavaSdk {
 	return m
 }
 
-func (m *JavaSdk) InstallDagger() *JavaSdk {
+// install Dagger
+func (m *JavaSdk) InstallDagger(
+	// +optional
+	// +default="0.10.2"
+	daggerVersion string,
+) *JavaSdk {
 	m.Ctr = m.Ctr.
+		WithEnvVariable("DAGGER_VERSION", daggerVersion).
 		WithUser("root").
 		WithWorkdir("/usr/local").
 		WithExec([]string{"curl", "-L", "-o", "install.sh", "https://dl.dagger.io/dagger/install.sh"}).
 		WithExec([]string{"chmod", "+x", "./install.sh"}).
 		WithExec([]string{"./install.sh"}).
 		WithUser("185")
-	//	WithExec([]string{"DAGGER_VERSION=0.9.7", "./install.sh"})
 	return m
-
-
-// cd /usr/local
-// curl -L https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.9.7 sh
-
-
 }
 
 func (m *JavaSdk) DaggerVersion(ctx context.Context, container *Container) (string, error){
@@ -74,8 +73,13 @@ func (m *JavaSdk) DaggerVersion(ctx context.Context, container *Container) (stri
 				Stdout(ctx)
 }
 
-func (m *JavaSdk) CI(ctx context.Context) (string, error){
-	return m.GetJDK().InstallDagger().Ctr.
+func (m *JavaSdk) CI(
+	ctx context.Context,
+	// +optional
+	// +default="0.10.2"
+	daggerVersion string,
+) (string, error){
+	return m.GetJDK().InstallDagger(daggerVersion).Ctr.
 				WithExec([]string{"/usr/local/bin/dagger", "version"}).
 				Stdout(ctx)
 }
