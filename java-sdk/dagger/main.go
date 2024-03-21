@@ -109,3 +109,33 @@ func (m *JavaSdk) Updates(ctx context.Context, dir *Directory, version string) (
 		WithExec([]string{"sh", "-c", "cat pom.xml | grep 'daggerengine.version'"}).
 		Stdout(ctx)
 }
+
+
+
+func (m *JavaSdk) Install(
+	ctx context.Context,
+	// +optional
+	// +default="0.10.2"
+	daggerVersion string,
+	dir *Directory,
+) (string, error){
+	homeDir := "/home/default"
+	srcDir := "/mnt/src"
+	m2CacheDir := "/home/default/.m2"
+	workDir := fmt.Sprintf("%s/sdk/java", srcDir)
+	return m.GetJDK().
+				InstallDagger(daggerVersion).
+				Ctr.
+				WithEnvVariable("HOME", homeDir).
+				WithEnvVariable("M2_HOME", homeDir).
+				WithEnvVariable("MAVEN_OPTS", "-Xdebug").
+				WithEnvVariable("MVNW_VERBOSE", "true").
+				WithMountedCache(m2CacheDir, dag.CacheVolume("maven-cache"), ContainerWithMountedCacheOpts{Owner: "185"}).
+				WithMountedDirectory(srcDir, dir, ContainerWithMountedDirectoryOpts{Owner: "185"}).
+				WithWorkdir(workDir).
+				WithExec([]string{"java", "--version"}).
+				WithExec([]string{"ls", "-la", ".mvn/wrapper/"}).
+				WithExec([]string{"./mvnw", "--debug", "--version"}).
+				WithExec([]string{"./mvnw", "install", "-pl", "dagger-codegen-maven-plugin"}).
+				Stdout(ctx)
+}
