@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 )
 
 type JavaSdk struct {
@@ -82,4 +83,29 @@ func (m *JavaSdk) CI(
 	return m.GetJDK().InstallDagger(daggerVersion).Ctr.
 				WithExec([]string{"/usr/local/bin/dagger", "version"}).
 				Stdout(ctx)
+}
+
+
+
+func (m *JavaSdk) Update(ctx context.Context, dir *Directory, version string) (*Directory, error) {
+	sedCommand := fmt.Sprintf("sed -i \"s#<daggerengine.version>devel</daggerengine.version>#<daggerengine.version>%s</daggerengine.version>#g\" pom.xml", version)
+	return dag.Container().
+		From("alpine:latest").
+		WithMountedDirectory("/mnt", dir).
+		WithWorkdir("/mnt").
+		WithExec([]string{"sh", "-c", sedCommand}).
+		WithExec([]string{"sh", "-c", "cat pom.xml | grep 'daggerengine.version'"}).
+		Directory("/mnt/").
+		Sync(ctx)
+}
+
+func (m *JavaSdk) Updates(ctx context.Context, dir *Directory, version string) (string, error) {
+	sedCommand := fmt.Sprintf("sed -i \"s#<daggerengine.version>devel</daggerengine.version>#<daggerengine.version>%s</daggerengine.version>#g\" pom.xml", version)
+	return dag.Container().
+		From("alpine:latest").
+		WithMountedDirectory("/mnt", dir).
+		WithWorkdir("/mnt").
+		WithExec([]string{"sh", "-c", sedCommand}).
+		WithExec([]string{"sh", "-c", "cat pom.xml | grep 'daggerengine.version'"}).
+		Stdout(ctx)
 }
