@@ -1,8 +1,11 @@
 // An experimental module to generate Dagger Java SDK artifacts.
 //
-// It helps generate generate artifacts for new [Dagger.io](https://dagger.io) engine version.
+// It helps generate generate artifacts for new Dagger engine version.
+//
 // Artifacts:
+//
 // * Schemas for code generation
+//
 // * Library Jar
 
 package main
