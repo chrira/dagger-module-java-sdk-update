@@ -35,7 +35,7 @@ func (m *JavaSdk) ContainerEcho(ctx context.Context, stringArg string) (string, 
 // Returns lines that match a pattern in the files of the provided Directory
 func (m *JavaSdk) GrepDir(ctx context.Context, directoryArg *Directory, pattern string) (string, error) {
 	return dag.Container().
-		From("alpine:latest").
+		From("alpine@sha256:6457d53fb065d6f250e1504b9bc42d5b6c65941d57532c072d929dd0628977d0").
 		WithMountedDirectory("/mnt", directoryArg).
 		WithWorkdir("/mnt").
 		WithExec([]string{"grep", "-R", pattern, "."}).
@@ -85,16 +85,22 @@ func (m *JavaSdk) CI(
 				Stdout(ctx)
 }
 
-
-
-func (m *JavaSdk) Update(ctx context.Context, dir *Directory, version string) (*Directory, error) {
-	sedCommand := fmt.Sprintf("sed -i \"s#<daggerengine.version>devel</daggerengine.version>#<daggerengine.version>%s</daggerengine.version>#g\" pom.xml", version)
+func (m *JavaSdk) Update(
+	ctx context.Context,
+	dir *Directory,
+	version string,
+	// +optional
+	path string,
+) (*Directory, error) {
+	file :=fmt.Sprintf("%spom.xml", path)
+	sedCommand := fmt.Sprintf("sed -i \"s#<daggerengine.version>devel</daggerengine.version>#<daggerengine.version>%s</daggerengine.version>#g\" %s", version, file)
+	catCommand := fmt.Sprintf("cat %s | grep 'daggerengine.version'", file)
 	return dag.Container().
-		From("alpine:latest").
+		From("alpine@sha256:6457d53fb065d6f250e1504b9bc42d5b6c65941d57532c072d929dd0628977d0").
 		WithMountedDirectory("/mnt", dir).
 		WithWorkdir("/mnt").
 		WithExec([]string{"sh", "-c", sedCommand}).
-		WithExec([]string{"sh", "-c", "cat pom.xml | grep 'daggerengine.version'"}).
+		WithExec([]string{"sh", "-c", catCommand}).
 		Directory("/mnt/").
 		Sync(ctx)
 }
@@ -102,7 +108,7 @@ func (m *JavaSdk) Update(ctx context.Context, dir *Directory, version string) (*
 func (m *JavaSdk) Updates(ctx context.Context, dir *Directory, version string) (string, error) {
 	sedCommand := fmt.Sprintf("sed -i \"s#<daggerengine.version>devel</daggerengine.version>#<daggerengine.version>%s</daggerengine.version>#g\" pom.xml", version)
 	return dag.Container().
-		From("alpine:latest").
+		From("alpine@sha256:6457d53fb065d6f250e1504b9bc42d5b6c65941d57532c072d929dd0628977d0").
 		WithMountedDirectory("/mnt", dir).
 		WithWorkdir("/mnt").
 		WithExec([]string{"sh", "-c", sedCommand}).
@@ -110,14 +116,12 @@ func (m *JavaSdk) Updates(ctx context.Context, dir *Directory, version string) (
 		Stdout(ctx)
 }
 
-
-
 func (m *JavaSdk) Install(
 	ctx context.Context,
+	dir *Directory,
 	// +optional
 	// +default="0.10.2"
 	daggerVersion string,
-	dir *Directory,
 ) (string, error){
 	homeDir := "/home/default"
 	srcDir := "/mnt/src"
@@ -134,8 +138,27 @@ func (m *JavaSdk) Install(
 				WithMountedDirectory(srcDir, dir, ContainerWithMountedDirectoryOpts{Owner: "185"}).
 				WithWorkdir(workDir).
 				WithExec([]string{"java", "--version"}).
-				WithExec([]string{"ls", "-la", ".mvn/wrapper/"}).
 				WithExec([]string{"./mvnw", "--debug", "--version"}).
 				WithExec([]string{"./mvnw", "install", "-pl", "dagger-codegen-maven-plugin"}).
+				WithExec(
+					[]string{"./mvnw", "-X", "-N", "dagger-codegen:generateSchema", "-Ddagger.bin=/usr/local/bin/dagger"},
+					ContainerWithExecOpts{ExperimentalPrivilegedNesting: true},
+				).
 				Stdout(ctx)
+}
+
+
+func (m *JavaSdk) Generate(
+	ctx context.Context,
+	dir *Directory,
+	// +optional
+	// +default="0.10.2"
+	version string,
+) (string, error) {
+	updDir, err := m.Update(ctx, dir, version, "sdk/java/")
+	//updDir, err := m.Update(ctx, dir.Directory("sdk/java"), version)
+	if err != nil {
+		return "", err
+	}
+	return m.Install(ctx, updDir, version)
 }
