@@ -99,7 +99,7 @@ func (m *JavaSdk) Install(
 	// +optional
 	// +default="0.10.2"
 	daggerVersion string,
-) (string, error){
+) *Container {
 	homeDir := "/home/default"
 	srcDir := "/mnt/src"
 	m2CacheDir := "/home/default/.m2"
@@ -120,8 +120,7 @@ func (m *JavaSdk) Install(
 				WithExec(
 					[]string{"./mvnw", "-X", "-N", "dagger-codegen:generateSchema", "-Ddagger.bin=/usr/local/bin/dagger"},
 					ContainerWithExecOpts{ExperimentalPrivilegedNesting: true},
-				).
-				Stdout(ctx)
+				)
 }
 
 // Generate the Schema for the given Dagger engine version.
@@ -133,11 +132,10 @@ func (m *JavaSdk) Generate(
 	// +optional
 	// +default="0.10.2"
 	version string,
-) (string, error) {
+) (*Container, error) {
 	updDir, err := m.Update(ctx, dir, version, "sdk/java/")
-	//updDir, err := m.Update(ctx, dir.Directory("sdk/java"), version)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return m.Install(ctx, updDir, version)
+	return m.Install(ctx, updDir, version), nil
 }
