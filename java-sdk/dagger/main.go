@@ -12,11 +12,12 @@ package main
 
 import (
 	"context"
+	"dagger/java-sdk/internal/dagger"
 	"fmt"
 )
 
 type JavaSdk struct {
-	Ctr *Container
+	Ctr *dagger.Container
 }
 
 func (m *JavaSdk) GetJDK() *JavaSdk {
@@ -45,7 +46,7 @@ func (m *JavaSdk) InstallDagger(
 	return m
 }
 
-func (m *JavaSdk) DaggerVersion(ctx context.Context, container *Container) (string, error){
+func (m *JavaSdk) DaggerVersion(ctx context.Context, container *dagger.Container) (string, error){
 	return container.
 				WithExec([]string{"dagger", "version"}).
 				Stdout(ctx)
@@ -64,11 +65,11 @@ func (m *JavaSdk) CI(
 
 func (m *JavaSdk) Update(
 	ctx context.Context,
-	dir *Directory,
+	dir *dagger.Directory,
 	version string,
 	// +optional
 	path string,
-) (*Directory, error) {
+) (*dagger.Directory, error) {
 	file :=fmt.Sprintf("%spom.xml", path)
 	sedCommand := fmt.Sprintf("sed -i \"s#<daggerengine.version>devel</daggerengine.version>#<daggerengine.version>%s</daggerengine.version>#g\" %s", version, file)
 	catCommand := fmt.Sprintf("cat %s | grep 'daggerengine.version'", file)
@@ -82,7 +83,7 @@ func (m *JavaSdk) Update(
 		Sync(ctx)
 }
 
-func (m *JavaSdk) Updates(ctx context.Context, dir *Directory, version string) (string, error) {
+func (m *JavaSdk) Updates(ctx context.Context, dir *dagger.Directory, version string) (string, error) {
 	sedCommand := fmt.Sprintf("sed -i \"s#<daggerengine.version>devel</daggerengine.version>#<daggerengine.version>%s</daggerengine.version>#g\" pom.xml", version)
 	return dag.Container().
 		From("alpine@sha256:6457d53fb065d6f250e1504b9bc42d5b6c65941d57532c072d929dd0628977d0").
@@ -95,11 +96,11 @@ func (m *JavaSdk) Updates(ctx context.Context, dir *Directory, version string) (
 
 func (m *JavaSdk) Install(
 	ctx context.Context,
-	dir *Directory,
+	dir *dagger.Directory,
 	// +optional
 	// +default="0.10.2"
 	daggerVersion string,
-) *Container {
+) *dagger.Container {
 	homeDir := "/home/default"
 	srcDir := "/mnt/src"
 	m2CacheDir := "/home/default/.m2"
@@ -111,15 +112,15 @@ func (m *JavaSdk) Install(
 				WithEnvVariable("M2_HOME", homeDir).
 				WithEnvVariable("MAVEN_OPTS", "-Xdebug").
 				WithEnvVariable("MVNW_VERBOSE", "true").
-				WithMountedCache(m2CacheDir, dag.CacheVolume("maven-cache"), ContainerWithMountedCacheOpts{Owner: "185"}).
-				WithMountedDirectory(srcDir, dir, ContainerWithMountedDirectoryOpts{Owner: "185"}).
+				WithMountedCache(m2CacheDir, dag.CacheVolume("maven-cache"), dagger.ContainerWithMountedCacheOpts{Owner: "185"}).
+				WithMountedDirectory(srcDir, dir, dagger.ContainerWithMountedDirectoryOpts{Owner: "185"}).
 				WithWorkdir(workDir).
 				WithExec([]string{"java", "--version"}).
 				WithExec([]string{"./mvnw", "--debug", "--version"}).
 				WithExec([]string{"./mvnw", "install", "-pl", "dagger-codegen-maven-plugin"}).
 				WithExec(
 					[]string{"./mvnw", "-X", "-N", "dagger-codegen:generateSchema", "-Ddagger.bin=/usr/local/bin/dagger"},
-					ContainerWithExecOpts{ExperimentalPrivilegedNesting: true},
+					dagger.ContainerWithExecOpts{ExperimentalPrivilegedNesting: true},
 				)
 }
 
@@ -128,11 +129,11 @@ func (m *JavaSdk) Install(
 // Example usage: `dagger call generate --dir https://github.com/dagger/dagger`
 func (m *JavaSdk) Generate(
 	ctx context.Context,
-	dir *Directory,
+	dir *dagger.Directory,
 	// +optional
 	// +default="0.10.2"
 	version string,
-) (*Container, error) {
+) (*dagger.Container, error) {
 	updDir, err := m.Update(ctx, dir, version, "sdk/java/")
 	if err != nil {
 		return nil, err
